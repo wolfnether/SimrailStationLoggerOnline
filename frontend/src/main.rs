@@ -60,7 +60,7 @@ fn view(model: &Model) -> Node<Msg> {
                 {
                     let tz = - js_sys::Date::new_0().get_timezone_offset() as i64;
                     let date = l.date.clone() + time::Duration::minutes(tz );
-                    format!("{}", date.format("%d/%m/%Y %H:%M"))
+                    format!("{}", date.format("%d/%m/%Y %H:%M:%S"))
                 },
                 " ",
                 if l.player == "BOT" {a!("BOT")} else{
