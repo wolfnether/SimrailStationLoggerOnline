@@ -1,5 +1,5 @@
 cd frontend
-trunk build --release --public-url dist
+trunk build --release --public-url dist --filehash false
 cd ..
 
 cd backend

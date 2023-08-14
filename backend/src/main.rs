@@ -9,7 +9,7 @@ use poem::middleware::AddData;
 use poem::web::{Data, Html, Json, Path};
 use poem::{get, EndpointExt, Route};
 use sqlx::migrate::MigrateDatabase;
-use sqlx::{Acquire, Executor, Sqlite, SqlitePool};
+use sqlx::{Executor, Sqlite, SqlitePool};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     let serve_task = poem::Server::new(TcpListener::bind("0.0.0.0:8080")).run(app);
     tokio::select! {
-        //ret = polling_task => println!("polling task ended with {ret:?}"),
+        ret = polling_task => println!("polling task ended with {ret:?}"),
         ret = serve_task => println!("server ended with {ret:?}")
     };
     Ok(())
@@ -92,7 +92,7 @@ async fn not_found(_: NotFoundError) -> Html<&'static str> {
 async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
     loop {
         if let Ok(servers) = get_servers().await {
-            for server in servers.iter().filter(|s| s.is_active) {
+            for server in servers.iter().filter(|s: &&Server| s.is_active) {
                 if let Ok(stations) = get_stations(&server.server_code).await {
                     for station in stations {
                         let last = sqlx::query_as(
@@ -106,6 +106,7 @@ async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
                         .last()
                         .map(|l: &Log| l.player.clone())
                         .unwrap_or("BOT".into());
+
                         let actual = station
                             .dispatched_by
                             .first()
