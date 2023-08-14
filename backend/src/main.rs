@@ -57,6 +57,7 @@ fn api_route() -> Route {
     Route::new()
         .at("/servers", get(list_servers))
         .at("/logs/:server", get(list_log))
+        .at("/logs", get(list_log_all))
 }
 
 #[poem::handler]
@@ -82,6 +83,14 @@ async fn list_log(
 ) -> anyhow::Result<Json<Vec<Log>>> {
     let logs = sqlx::query_as("select * from log where server = $1 order by station, date")
         .bind(server)
+        .fetch_all(&db.to_owned())
+        .await?;
+    Ok(Json(logs))
+}
+
+#[poem::handler]
+async fn list_log_all(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<Log>>> {
+    let logs = sqlx::query_as("select * from log order by server, station, date")
         .fetch_all(&db.to_owned())
         .await?;
     Ok(Json(logs))
