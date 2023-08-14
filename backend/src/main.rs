@@ -125,16 +125,16 @@ async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
                             .execute(&db)
                             .await?;
                         }
-                        sqlx::query("delete from log where date <= $1")
-                            .bind(chrono::DateTime::<Utc>::from(
-                                SystemTime::now() - Duration::from_secs(3600 * 24 * 3),
-                            ))
-                            .execute(&db)
-                            .await?;
                     }
                 }
             }
         }
+        sqlx::query("delete from log where date <= $1")
+            .bind(chrono::DateTime::<Utc>::from(
+                SystemTime::now() - Duration::from_secs(3600 * 24 * 3),
+            ))
+            .execute(&db)
+            .await?;
         tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
