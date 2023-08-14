@@ -6,7 +6,7 @@ use poem::endpoint::StaticFilesEndpoint;
 use poem::error::NotFoundError;
 use poem::listener::TcpListener;
 use poem::middleware::AddData;
-use poem::web::{Data, Html, Json};
+use poem::web::{Data, Html, Json, Path};
 use poem::{get, EndpointExt, Route};
 use sqlx::migrate::MigrateDatabase;
 use sqlx::{Acquire, Executor, Sqlite, SqlitePool};
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     let serve_task = poem::Server::new(TcpListener::bind("0.0.0.0:8080")).run(app);
     tokio::select! {
-        ret = polling_task => println!("polling task ended with {ret:?}"),
+        //ret = polling_task => println!("polling task ended with {ret:?}"),
         ret = serve_task => println!("server ended with {ret:?}")
     };
     Ok(())
@@ -54,8 +54,7 @@ async fn get_db() -> anyhow::Result<SqlitePool> {
 fn api_route() -> Route {
     Route::new()
         .at("/servers", get(list_servers))
-        .at("/station", get(list_station))
-        .at("/log", get(list_log))
+        .at("/logs/:server", get(list_log))
 }
 
 #[poem::handler]
@@ -64,17 +63,26 @@ fn index() -> Html<&'static str> {
 }
 
 #[poem::handler]
-fn list_servers(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
-    todo!()
+async fn list_servers(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
+    let servers = sqlx::query_as("select * from log group by server")
+        .fetch_all(&db.to_owned())
+        .await?
+        .iter()
+        .map(|s: &Log| s.server.clone())
+        .collect();
+    Ok(Json(servers))
 }
 
 #[poem::handler]
-fn list_station(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
-    todo!()
-}
-#[poem::handler]
-fn list_log(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
-    todo!()
+async fn list_log(
+    db: Data<&SqlitePool>,
+    Path(server): Path<String>,
+) -> anyhow::Result<Json<Vec<Log>>> {
+    let logs = sqlx::query_as("select * from log where server = $1 ")
+        .bind(server)
+        .fetch_all(&db.to_owned())
+        .await?;
+    Ok(Json(logs))
 }
 
 async fn not_found(_: NotFoundError) -> Html<&'static str> {
@@ -87,16 +95,17 @@ async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
             for server in servers.iter().filter(|s| s.is_active) {
                 if let Ok(stations) = get_stations(&server.server_code).await {
                     for station in stations {
-                        let last =
-                            sqlx::query_as("select * from log where server = $1 and station = $2")
-                                .bind(&server.server_code)
-                                .bind(&station.prefix)
-                                .fetch_all(&db)
-                                .await?
-                                .iter()
-                                .last()
-                                .map(|l: &Log| l.player.clone())
-                                .unwrap_or("BOT".into());
+                        let last = sqlx::query_as(
+                            "select * from log where server = $1 and station = $2 order by date",
+                        )
+                        .bind(&server.server_code)
+                        .bind(&station.prefix)
+                        .fetch_all(&db)
+                        .await?
+                        .iter()
+                        .last()
+                        .map(|l: &Log| l.player.clone())
+                        .unwrap_or("BOT".into());
                         let actual = station
                             .dispatched_by
                             .first()
@@ -104,7 +113,9 @@ async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
                             .unwrap_or("BOT".into());
 
                         if last != actual {
-                            sqlx::query("insert into log (server, station, player, date) VALUES ($1, $2, $3, 'now')")
+                            sqlx::query(
+                                "insert into log (server, station, player, date) VALUES ($1, $2, $3, datetime())",
+                            )
                             .bind(&server.server_code)
                             .bind(&station.prefix)
                             .bind(&actual)
