@@ -1,5 +1,6 @@
 use core::time::Duration;
 
+use common::db_data_struct::Log;
 use common::simrail_data_struct::{Server, ServerResponse, Station, StationResponse};
 use poem::endpoint::StaticFilesEndpoint;
 use poem::error::NotFoundError;
@@ -80,13 +81,36 @@ async fn not_found(_: NotFoundError) -> Html<&'static str> {
     Html(include_str!("../../frontend/dist/index.html"))
 }
 
-async fn api_polling(db: SqlitePool) {
+async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
     loop {
         if let Ok(servers) = get_servers().await {
             for server in servers.iter().filter(|s| s.is_active) {
                 if let Ok(stations) = get_stations(&server.server_code).await {
                     for station in stations {
-                        println!("{station:?}")
+                        let last =
+                            sqlx::query_as("select * from log where server = $1 and station = $2")
+                                .bind(&server.server_code)
+                                .bind(&station.prefix)
+                                .fetch_all(&db)
+                                .await?
+                                .iter()
+                                .last()
+                                .map(|l: &Log| l.player.clone())
+                                .unwrap_or("BOT".into());
+                        let actual = station
+                            .dispatched_by
+                            .first()
+                            .map(|d| d.steam_id.clone())
+                            .unwrap_or("BOT".into());
+
+                        if last != actual {
+                            sqlx::query("insert into log (server, station, player, date) VALUES ($1, $2, $3, 'now')")
+                            .bind(&server.server_code)
+                            .bind(&station.prefix)
+                            .bind(&actual)
+                            .execute(&db)
+                            .await?;
+                        }
                     }
                 }
             }
