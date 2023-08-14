@@ -87,6 +87,8 @@ pub struct Train {
     #[serde(skip)]
     pub loc: Option<String>,
 }
+
+#[allow(dead_code)]
 impl Train {
     pub(crate) fn dist_from(&self, station: &Station) -> f32 {
         const R: f32 = 6371.;
@@ -103,6 +105,7 @@ impl Train {
         R * (2.0 * a.sqrt().asin())
     }
 }
+
 #[derive(Debug, Deserialize)]
 pub struct TrainData {
     #[serde(rename(deserialize = "ControlledBySteamID"))]
@@ -124,6 +127,7 @@ pub struct TrainData {
     pub vddelayed_timetable_index: isize,
 }
 
+#[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 pub struct StopDescription {
     pub nameOfPoint: String,
