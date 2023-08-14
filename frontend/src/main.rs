@@ -57,17 +57,7 @@ fn view(model: &Model) -> Node<Msg> {
             p!(station),
             log.iter().map(|l| p!(
                 style!(),
-                {
-                    /*let tz = js_sys::Date::new_0().get_timezone_offset() as i64;
-                    let d = l.0.duration_since(web_time::UNIX_EPOCH).unwrap().as_secs() as i64 - tz * 60;
-                    let s = d % 60;
-                    let m_rem = (d - s) / 60;
-                    let m = m_rem % 60;
-                    let h_rem = (m_rem - m) / 60;
-                    let h = h_rem % 24;
-                    format!("{h:02}:{m:02}:{s:02}")*/
-                    format!("{}",l.date.format("%d/%m/%Y %H:%M UTC"))
-                },
+                format!("{}",l.date.format("%d/%m/%Y %H:%M UTC")),
                 " ",
                 if l.player == "BOT" {a!("BOT")} else{
                     a!(attrs!(At::Href=> format!("https://steamcommunity.com/profiles/{}",l.player.clone()), At::Target => "_blank"),l.player.clone())

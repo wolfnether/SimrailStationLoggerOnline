@@ -1,4 +1,5 @@
 use core::time::Duration;
+use std::time::SystemTime;
 
 use common::db_data_struct::Log;
 use common::simrail_data_struct::{Server, ServerResponse, Station, StationResponse};
@@ -9,6 +10,7 @@ use poem::middleware::AddData;
 use poem::web::{Data, Html, Json, Path};
 use poem::{get, EndpointExt, Route};
 use sqlx::migrate::MigrateDatabase;
+use sqlx::types::chrono::{self, Utc};
 use sqlx::{Executor, Sqlite, SqlitePool};
 
 #[tokio::main]
@@ -78,7 +80,7 @@ async fn list_log(
     db: Data<&SqlitePool>,
     Path(server): Path<String>,
 ) -> anyhow::Result<Json<Vec<Log>>> {
-    let logs = sqlx::query_as("select * from log where server = $1 ")
+    let logs = sqlx::query_as("select * from log where server = $1 order by station, date")
         .bind(server)
         .fetch_all(&db.to_owned())
         .await?;
@@ -123,6 +125,12 @@ async fn api_polling(db: SqlitePool) -> Result<(), anyhow::Error> {
                             .execute(&db)
                             .await?;
                         }
+                        sqlx::query("delete from log where date <= $1")
+                            .bind(chrono::DateTime::<Utc>::from(
+                                SystemTime::now() - Duration::from_secs(3600 * 24 * 3),
+                            ))
+                            .execute(&db)
+                            .await?;
                     }
                 }
             }
