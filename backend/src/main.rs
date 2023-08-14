@@ -4,11 +4,16 @@ use common::simrail_data_struct::{Server, ServerResponse, Station, StationRespon
 use poem::endpoint::StaticFilesEndpoint;
 use poem::error::NotFoundError;
 use poem::listener::TcpListener;
-use poem::web::{Html, Json};
+use poem::middleware::AddData;
+use poem::web::{Data, Html, Json};
 use poem::{get, EndpointExt, Route};
+use sqlx::migrate::MigrateDatabase;
+use sqlx::{Acquire, Executor, Sqlite, SqlitePool};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let db = get_db().await?;
+
     let app = Route::new()
         .nest(
             "/dist",
@@ -16,8 +21,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .nest("/api", api_route())
         .at("/", get(index))
-        .catch_error(not_found);
-    let polling_task = api_polling();
+        .catch_error(not_found)
+        .with(AddData::new(db.clone()));
+
+    let polling_task = api_polling(db.clone());
 
     let serve_task = poem::Server::new(TcpListener::bind("0.0.0.0:8080")).run(app);
     tokio::select! {
@@ -27,10 +34,27 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn get_db() -> anyhow::Result<SqlitePool> {
+    const DB_URL: &str = "sqlite://sqlite.db";
+    if !Sqlite::database_exists(DB_URL).await.unwrap_or(false) {
+        Sqlite::create_database(DB_URL).await?;
+    }
+
+    let db = SqlitePool::connect(DB_URL).await?;
+    db.acquire()
+        .await?
+        .execute(
+            "CREATE TABLE IF NOT EXISTS log (server TEXT, station TEXT, player TEXT, date DATETIME)",
+        )
+        .await?;
+    Ok(db)
+}
+
 fn api_route() -> Route {
     Route::new()
         .at("/servers", get(list_servers))
         .at("/station", get(list_station))
+        .at("/log", get(list_log))
 }
 
 #[poem::handler]
@@ -39,12 +63,16 @@ fn index() -> Html<&'static str> {
 }
 
 #[poem::handler]
-fn list_servers() -> anyhow::Result<Json<Vec<()>>> {
+fn list_servers(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
     todo!()
 }
 
 #[poem::handler]
-fn list_station() -> anyhow::Result<Json<Vec<()>>> {
+fn list_station(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
+    todo!()
+}
+#[poem::handler]
+fn list_log(db: Data<&SqlitePool>) -> anyhow::Result<Json<Vec<String>>> {
     todo!()
 }
 
@@ -52,7 +80,7 @@ async fn not_found(_: NotFoundError) -> Html<&'static str> {
     Html(include_str!("../../frontend/dist/index.html"))
 }
 
-async fn api_polling() {
+async fn api_polling(db: SqlitePool) {
     loop {
         if let Ok(servers) = get_servers().await {
             for server in servers.iter().filter(|s| s.is_active) {
