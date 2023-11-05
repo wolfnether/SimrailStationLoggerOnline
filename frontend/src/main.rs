@@ -1,6 +1,7 @@
 use common::db_data_struct::Log;
 use itertools::Itertools;
 use seed::{prelude::*, *};
+use chrono::{DateTime, Duration, Utc};
 
 struct Model {
     servers: Vec<String>,
@@ -59,7 +60,7 @@ fn view(model: &Model) -> Node<Msg> {
                 style!(),
                 {
                     let tz = - js_sys::Date::new_0().get_timezone_offset() as i64;
-                    let date = l.date.clone() + time::Duration::minutes(tz );
+                    let date = l.date.clone().checked_add_signed(Duration::minutes(tz)).unwrap();
                     format!("{}", date.format("%d/%m/%Y %H:%M:%S"))
                 },
                 " ",
