@@ -1,10 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "backend")]
-use sqlx::FromRow;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 pub struct Log {
     pub server: String,
     pub station: String,

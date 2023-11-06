@@ -6,13 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.72"
+anyhow = "1.0.75"
 common = { path = "../common", features = ["frontend"] }
 console_error_panic_hook = "0.1.7"
-itertools = "0.11"
-reqwest = { version = "0.11.18", features = ["json"] }
+itertools = "0.11.0"
+reqwest = { version = "0.11", features = ["json"] }
 seed = "0.10.0"
-time = "0.1.45"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
